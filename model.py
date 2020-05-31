@@ -31,7 +31,7 @@ from tensorflow.python.keras.utils import conv_utils
 
 # from keras.utils.data_utils import get_file
 
-WEIGHTS_DEEPLAB = "releases/download/1.1/deeplabv3_xception_tf_dim_ordering_tf_kernels.h5"
+WEIGHTS_PATH_X = "deeplabv3_xception_tf_dim_ordering_tf_kernels.h5"
 
 
 class BilinearUpsampling(Layer):
@@ -186,7 +186,7 @@ class xception_block(Layer):
                 rate=rate,
                 depth_activation=depth_activation))
             if i == 1:
-                self.skip = self.residual
+                self.skip = self.residual[i]
                 # self.skip = SepConv_BN(
                 #     depth_list[i],
                 #     prefix + '_separable_conv{}'.format(i + 1),
@@ -208,12 +208,9 @@ class xception_block(Layer):
     def call(self, x):
         residual = x
         for i in range(3):
-            print("i = ", i)
             residual = self.residual[i](x)
-            print(residual)
-
             if i == 1:
-                self.skip = self.residual
+                self.skip = self.residual[i](x)
         print("Res before CONV = ", residual)
         if self.skip_connection_type == 'conv':
             shortcut1 = self.shortcut(x)
@@ -222,7 +219,8 @@ class xception_block(Layer):
         elif self.skip_connection_type == 'sum':
             self.outputs = layers.add([residual, x])
         elif self.skip_connection_type == 'none':
-            self.outputs = self.residual
+            print("output = ", residual)
+            self.outputs = residual
 
         if self.return_skip:
             print("skip = ", self.outputs, self.skip)
@@ -363,6 +361,7 @@ class Deeplabv3_plus(Model):
         self.concat_projection_BN = BatchNormalization(epsilon=1e-5)
         self.relu4 = Activation('relu')
         self.droput = Dropout(0.1)
+        self.activation = Activation("softmax")
 
         # DeepLab v.3+ decoder
 
@@ -395,7 +394,6 @@ class Deeplabv3_plus(Model):
             inputs = get_source_inputs(self.input_tensor)
         else:
             inputs = self.img_input
-
         if training:
             x = self.entry_flow_conv1_1(inputs)
             x = self.entry_flow_conv1_1_BN(x)
@@ -411,12 +409,19 @@ class Deeplabv3_plus(Model):
             print("Block 2 x = ", x)
             print("#######################################################################################")
             x = self.entry_flow_block3(x)
-
+            print("Block 3 x = ", x)
+            print("#######################################################################################")
             for i in range(16):
                 x = self.middle_flow_unit[i](x)
-
+            print("middle flow complete")
+            print("######################################################################################")
             x = self.exit_flow_block1(x)
+            print("Exit Flow 1")
+            print("#######################################################################################")
+            print("X before exit flow = ", x)
             x = self.exit_flow_block2(x)
+            print("Exit Flow 2")
+            print("#######################################################################################")
             # End: Feature extractor
 
             # Start: Atrous Pooling
@@ -431,10 +436,15 @@ class Deeplabv3_plus(Model):
             b3 = self.aspp3(x)
 
             b4 = self.b4_ap(x)
-            b4 = self.image_pooling(x)
-            b4 = self.image_pooling_BN(x)
-            b4 = self.relu3(x)
-            b4 = self.b4_bu(x)
+            # print("b4_ap = ", x)
+            b4 = self.image_pooling(b4)
+            # print("b4_con2d = ", x)
+            b4 = self.image_pooling_BN(b4)
+            # print("b4_bn = ", x)
+            b4 = self.relu3(b4)
+            # print("b4_act = ", x)
+            b4 = self.b4_bu(b4)
+            # print("b4_bu = ", x)
 
             # ASPP and Project
             x = self.concat1([b4, b0, b1, b2, b3])
@@ -445,7 +455,7 @@ class Deeplabv3_plus(Model):
 
             # Feature Projection
             x = self.bu(x)
-            dec_skip1 = self.feature_projection0(skip_1)
+            dec_skip1 = self.feature_projection0(skip1)
             dec_skip1 = self.feature_projection0_BN(x)
             dec_skip1 = self.relu5(dec_skip1)
             x = self.concat2([x, dec_skip1])
@@ -455,4 +465,19 @@ class Deeplabv3_plus(Model):
             x = self.logits1(x)
             x = self.logits2(x)
 
-            return x
+            # Ensure that the model takes into account
+            # any potential predecessors of `input_tensor`.
+            if self.input_tensor is not None:
+                inputs = get_source_inputs(self.input_tensor)
+            else:
+                inputs = self.img_input
+
+            # print("inputs = ", inputs)
+            # print("x = ", x)
+            # model = Model(inputs, x)
+            #
+            # print("weights_path", WEIGHTS_PATH_X)
+            # model.load_weights(WEIGHTS_PATH_X)
+        else:
+            x = inputs
+        return x
