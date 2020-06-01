@@ -2,9 +2,8 @@ import numpy as np
 from PIL import Image
 from matplotlib import pyplot as plt
 from model import Deeplabv3_plus
+
 # from old_model import Deeplabv3_old
-# Generates labels using most basic setup.  Supports various image sizes.  Returns image labels in same format
-# as original image.  Normalization matches MobileNetV2
 
 trained_image_width = 512
 mean_subtraction_value = 127.5
@@ -27,7 +26,7 @@ deeplab_model = Deeplabv3_plus()
 # deeplab_model = Deeplabv3_old()
 
 res = deeplab_model.predict(np.expand_dims(resized_image, 0))
-print("res",res)
+print("res", res)
 labels = np.argmax(res.squeeze(), -1)
 
 # remove padding and resize back to original image

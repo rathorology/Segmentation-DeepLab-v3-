@@ -187,24 +187,13 @@ class xception_block(Layer):
                 depth_activation=depth_activation))
             if i == 1:
                 self.skip = self.residual[i]
-                # self.skip = SepConv_BN(
-                #     depth_list[i],
-                #     prefix + '_separable_conv{}'.format(i + 1),
-                #     stride=stride if i == 2 else 1,
-                #     rate=rate,
-                #     depth_activation=depth_activation)
 
         if self.skip_connection_type == 'conv':
             self.shortcut = conv2d_same(depth_list[-1], prefix + '_shortcut',
                                         kernel_size=1,
                                         stride=stride)
             self.shortcut_bn = BatchNormalization(name=prefix + '_shortcut_BN')
-            # self.outputs = layers.add([residual, shortcut])
 
-    #         elif skip_connection_type == 'sum':
-    #             self.outputs = layers.add([residual, inputs])
-    #         elif skip_connection_type == 'none':
-    #             self.outputs = residual
     def call(self, x):
         residual = x
         for i in range(3):
@@ -227,28 +216,6 @@ class xception_block(Layer):
             return self.outputs, self.skip
         else:
             return self.outputs
-
-    # def call(self, x):
-    #     inputs = x
-    #     for i in range(3):
-    #         x = self.residual[i](x)
-    #
-    #         if i == 1:
-    #             self.skip = self.skip(x)
-    #
-    #     if self.skip_connection_type == 'conv':
-    #         shortcut2 = self.shortcut(x)
-    #         shortcut3 = self.shortcut_bn(shortcut2)
-    #         self.outputs = layers.add([x, shortcut3])
-    #     elif self.skip_connection_type == 'sum':
-    #         self.outputs = layers.add([x, inputs])
-    #     elif self.skip_connection_type == 'none':
-    #         self.outputs = self.residual
-    #
-    #     if self.return_skip:
-    #         return self.outputs, self.skip
-    #     else:
-    #         return self.outputs
 
 
 class Deeplabv3_plus(Model):
@@ -379,12 +346,6 @@ class Deeplabv3_plus(Model):
         self.decoder_conv1 = SepConv_BN(256, 'decoder_conv1',
                                         depth_activation=True, epsilon=1e-5)
 
-        #         # you can use it with arbitary number of classes
-        #         if classes == 21:
-        #             last_layer_name = 'logits_semantic'
-        #         else:
-        #             last_layer_name = 'custom_logits_semantic'
-
         self.logits1 = Conv2D(classes, (1, 1), padding='same')
         self.logits2 = BilinearUpsampling(output_size=(input_shape[0], input_shape[1]))
 
@@ -436,15 +397,10 @@ class Deeplabv3_plus(Model):
             b3 = self.aspp3(x)
 
             b4 = self.b4_ap(x)
-            # print("b4_ap = ", x)
             b4 = self.image_pooling(b4)
-            # print("b4_con2d = ", x)
             b4 = self.image_pooling_BN(b4)
-            # print("b4_bn = ", x)
             b4 = self.relu3(b4)
-            # print("b4_act = ", x)
             b4 = self.b4_bu(b4)
-            # print("b4_bu = ", x)
 
             # ASPP and Project
             x = self.concat1([b4, b0, b1, b2, b3])
@@ -465,12 +421,12 @@ class Deeplabv3_plus(Model):
             x = self.logits1(x)
             x = self.logits2(x)
 
-            # Ensure that the model takes into account
-            # any potential predecessors of `input_tensor`.
-            if self.input_tensor is not None:
-                inputs = get_source_inputs(self.input_tensor)
-            else:
-                inputs = self.img_input
+            # # Ensure that the model takes into account
+            # # any potential predecessors of `input_tensor`.
+            # if self.input_tensor is not None:
+            #     inputs = get_source_inputs(self.input_tensor)
+            # else:
+            #     inputs = self.img_input
 
             # print("inputs = ", inputs)
             # print("x = ", x)
